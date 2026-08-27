@@ -69,21 +69,14 @@ body{
   box-shadow:0 0 30px 12px rgba(0,0,0,.55);
 }
 
-/* 落脚点 · the ledges the climber lands on.
-   颜色取自山壁原图，所以看起来是同一块石头。
-   Colours sampled from the wall art so the ledges read as the same stone. */
-/* 落脚点和人都放在这个盒子里，跟山壁对齐 · same box as the wall, so they line up */
+/* 落脚点不用画：山壁那张图上本来就有石台，人直接站上去。
+   位置记在下面的 WALL_LEDGES 里。
+   The ledges are not drawn. The wall art already has stone shelves on it and
+   the climber stands on those; WALL_LEDGES below holds where they are. */
+/* 人放在这个盒子里，跟山壁对齐 · same box as the wall, so they line up */
 .wallbox{
   position:absolute; top:0; bottom:0; left:50%; transform:translateX(-50%);
   width:78%; max-width:340px; pointer-events:none;
-}
-.ledges{ position:absolute; inset:0; transition:transform .45s ease-out; }
-.ledge{
-  position:absolute; width:84px; height:17px; margin-left:-42px;
-  background:
-    linear-gradient(#f2dc96 0 5px, #ecd58d 5px 7px, #97723f 7px 14px, #6a5130 14px 100%);
-  border-radius:5px 5px 3px 3px;
-  box-shadow:0 5px 9px rgba(47,38,21,.66), inset 0 1px 0 rgba(255,255,255,.35);
 }
 
 .climber{
@@ -95,13 +88,19 @@ body{
   image-rendering:auto;
   filter:drop-shadow(0 6px 6px rgba(0,0,0,.5));
   transition:bottom .45s ease-out, left .45s ease-out;
+  /* 画里的猴子是朝右的。--face 用 -1 把它翻过来朝左。
+     The drawing faces right. --face flips it to -1 to face left. */
+  transform:scaleX(var(--face, 1));
 }
-/* 跳跃时的抛物线 · the arc of a hop */
+/* 跳跃时的抛物线 · the arc of a hop.
+   每一帧都要带上 scaleX，不然动画一跑，朝向就被冲掉了。
+   Every frame carries the scaleX too: the animation writes transform, so
+   leaving it out of a single frame would wipe the facing mid-hop. */
 .climber.hop{ animation:hop .45s ease-out; }
 @keyframes hop{
-  0%{ transform:translateY(0) }
-  45%{ transform:translateY(-20px) }
-  100%{ transform:translateY(0) }
+  0%{ transform:translateY(0) scaleX(var(--face, 1)) }
+  45%{ transform:translateY(-20px) scaleX(var(--face, 1)) }
+  100%{ transform:translateY(0) scaleX(var(--face, 1)) }
 }
 
 /* --- 顶部信息 · the HUD ----------------------------------- */
@@ -223,7 +222,6 @@ body{
     <div class="climb">
       <div class="wall" id="wall"></div>
       <div class="wallbox">
-        <div class="ledges"  id="ledges"></div>
         <div class="climber" id="climber"></div>
       </div>
       <div class="hud">
@@ -284,20 +282,36 @@ window.addEventListener('error', function(e){
    You don't need to edit anything below.
    ============================================================ */
 
-const PX_PER_M   = 62;    // 每一格落脚点之间的高度 · the gap between ledges
-const BASE_PX    = 54;    // 第一格离底部多高 · how high the first ledge sits
-const DEADZONE   = 3;     // 爬满这么多格，画面才开始往下卷
-                          // the climber rises this many ledges before the wall scrolls
-const LEDGES     = 140;   // 一局最多铺多少格 · how many ledges to lay out per run
+const DEADZONE   = .45;   // 人爬到画面这么高就不再往上，改成画面往下卷
+                          // the climber rises to this height, then the wall scrolls
 const CLIMB_MS   = 450;   // 一次攀爬动作的时长
 const PENALTY_MS = 3000;  // 答错扣多少毫秒
+const FOOT_TRIM  = 3;     // 图里猴子的脚离图片底边还有这么几个点
+                          // the sprite's feet sit this many px above its own bottom edge
+
+/* 山壁图上那些石台的位置，从下往上排。x 是石台中心，y 是石台上表面，
+   两个都是「占整张图的几分之几」，所以换成别的尺寸也不用改。
+   一张图用完就接下一张（山壁是上下无缝重复的），所以这张表就够爬到顶。
+   换掉 wall.jpg 的话，这张表要跟着重新量，不然人会踩空。
+
+   Where the stone shelves sit on the wall art, ordered bottom to top. x is the
+   centre of the shelf and y is its top surface, both as fractions of the image,
+   so they hold at any size. The wall tiles seamlessly, so the list repeats for
+   as high as anyone can climb. Swap wall.jpg and these have to be re-measured,
+   or the climber lands on thin air. */
+const WALL_LEDGES = [
+  { x: .369, y: .932 }, { x: .663, y: .860 }, { x: .165, y: .811 },
+  { x: .843, y: .714 }, { x: .297, y: .671 }, { x: .652, y: .587 },
+  { x: .244, y: .514 }, { x: .764, y: .466 }, { x: .317, y: .374 },
+  { x: .629, y: .301 }, { x: .206, y: .239 }, { x: .852, y: .189 },
+  { x: .631, y: .158 }, { x: .192, y: .082 }, { x: .846, y: .035 }
+];
+const TILE_RATIO = 837 / 600;   // wall.jpg 的高比宽 · the wall image's height over its width
 
 const $ = id => document.getElementById(id);
-const wall = $('wall'), climber = $('climber'), panel = $('panel'), ledges = $('ledges');
+const wall = $('wall'), climber = $('climber'), panel = $('panel');
+const wallbox = document.querySelector('.wallbox');
 
-/* 落脚点左右交错，人才像在之字形往上爬
-   Ledges alternate left and right, so the climb zigzags the way a real one does */
-const sideOf = i => (i % 2 === 0) ? 38 : 62;   // 百分比 · percent across the wall
 
 let altitude = 0, score = 0, deadline = 0;
 let running = false, locked = false;
@@ -411,32 +425,55 @@ function choose(button, def){
 /* --- 攀爬 · the climb ------------------------------------- */
 function setFrame(i){ climber.style.backgroundPositionX = (i * 20) + '%'; }
 
-/* 铺好一整排落脚点 · lay out the ledges for a run */
-function buildLedges(){
-  let html = '';
-  for (let i = 0; i < LEDGES; i++)
-    html += '<div class="ledge" style="bottom:' + (BASE_PX + i * PX_PER_M) +
-            'px; left:' + sideOf(i) + '%"></div>';
-  ledges.innerHTML = html;
+/* 第 i 个石台在这张表里的第几个 · which shelf in the list ledge i is */
+const ledgeAt = i => WALL_LEDGES[((i % WALL_LEDGES.length) + WALL_LEDGES.length) % WALL_LEDGES.length];
+
+/* 山壁一张图在屏幕上有多高 · how tall one tile of the wall art is on screen */
+const tileH = () => wall.clientWidth * TILE_RATIO;
+
+/* 第 i 个石台离「第一张图的底边」有多高。爬满一张图就换下一张。
+   How high shelf i sits above the bottom of the first tile. Every full list
+   climbed is one more tile up the wall. */
+function ledgeH(i){
+  const tile = Math.floor(i / WALL_LEDGES.length);
+  return (tile + 1 - ledgeAt(i).y) * tileH();
 }
 
-/* 镜头跟随：人先往上爬，爬高了才换成画面往下卷。
-   A camera with a dead zone: the climber rises up the screen first, and only
-   once it is high enough does the wall scroll instead. */
+/* 镜头跟随：人先往上爬，爬到画面的某个高度就不再往上，改成山壁往下卷。
+   A camera with a dead zone: the climber rises up the screen first, and once it
+   reaches DEADZONE of the way up, the wall scrolls instead. */
 function place(){
-  const worldY  = altitude * PX_PER_M;
-  const cameraY = Math.max(0, worldY - DEADZONE * PX_PER_M);
+  const H = wallbox.clientHeight;
+  // 图片和字体还没量好的时候，宽度会是 0，算出来的落点就全错。等下一帧再算。
+  // Before layout settles the wall can measure 0 wide, which would put the
+  // climber nowhere. Wait a frame and try again.
+  if (!wall.clientWidth || !H){ requestAnimationFrame(place); return; }
 
-  wall.style.backgroundPositionY = cameraY + 'px';
-  ledges.style.transform = 'translateY(' + cameraY + 'px)';
-  climber.style.bottom = (BASE_PX + worldY - cameraY + 14) + 'px';
-  climber.style.left = sideOf(altitude) + '%';
+  const worldY = ledgeH(altitude);
+  const scroll = Math.max(0, worldY - H * DEADZONE);
+
+  // 山壁摆成：不卷动时，第一张图的底边正好贴着画面底边。
+  // Park the wall so that, unscrolled, the first tile's bottom edge sits on the
+  // bottom edge of the view. Then the climber's height is simply worldY - scroll.
+  wall.style.backgroundPositionY = (H - tileH() + scroll) + 'px';
+  climber.style.bottom = (worldY - scroll - FOOT_TRIM) + 'px';
+  climber.style.left = (ledgeAt(altitude).x * 100) + '%';
+}
+
+/* 石台左右交错，所以每跳一次方向就换一次。猴子要面向它跳的方向，
+   不然看起来像在倒着跳。
+   The shelves zigzag, so every hop reverses direction and the climber has to
+   turn to face the way it is going, or it reads as jumping backwards. */
+function face(){
+  const from = ledgeAt(altitude - 1).x, to = ledgeAt(altitude).x;
+  climber.style.setProperty('--face', (to >= from) ? '1' : '-1');
 }
 
 function ascend(){
   altitude++;
   $('alt').textContent = altitude;
   place();
+  face();
 
   // 重新触发跳跃动画 · restart the hop animation
   climber.classList.remove('hop');
@@ -461,9 +498,11 @@ function startRun(){
 
   $('alt').textContent = '0';
   $('score').textContent = '0';
-  buildLedges();
   place();
   climber.classList.remove('hop');
+  // 开局先朝着下一跳的方向站着 · face the way the first hop will go
+  climber.style.setProperty('--face',
+    (WALL_LEDGES[1].x >= WALL_LEDGES[0].x) ? '1' : '-1');
   setFrame(0);
 
   $('startScreen').classList.remove('on');
@@ -501,11 +540,13 @@ try {
     $('startInfo').innerHTML =
       '<b>' + escapeHtml(UNIT_NAME) + '</b><br>' +
       VOCAB.length + ' 个词语 · ' + Number(SECONDS) + ' 秒';
-    buildLedges();
     place();
     $('startBtn').onclick = startRun;
     $('againBtn').onclick = startRun;
     setFrame(0);
+    // 转屏或改窗口大小，山壁的尺寸就变了，得重新算一次落点
+    // Rotating the phone resizes the wall, so the landing spots have to be redone
+    window.addEventListener('resize', place);
     // 电脑上可以直接按 1 2 3 4 作答 · keys 1–4 work on a laptop
     document.addEventListener('keydown', e => {
       const i = '1234'.indexOf(e.key);
