@@ -84,7 +84,7 @@ Project 的好处是：这些文件会一直留在里面。以后要换单元，
 1. 到 [github.com/new](https://github.com/new)，取一个仓库名字，选 **Public**，
    点 **Create repository**
 2. 在新仓库的页面点 **uploading an existing file**
-3. 把你资料夹里的东西**整个拖进去**（记得连 `art` 资料夹一起），
+3. 把你资料夹里的**所有文件**拖进去（三张图也要），
    然后 **Commit changes**
 4. **Settings** → **Pages** → Source 选 **Deploy from a branch**
    → 分支选 **main** → 资料夹选 **/ (root)** → **Save**
@@ -152,7 +152,7 @@ const VOCAB = [
 
 ## 换个角色（选做）
 
-`art/climber.png` 是一张 6 格并排的动作图。用 ChatGPT、Claude 或其他 AI 绘图工具
+`climber.png` 是一张 6 格并排的动作图。用 ChatGPT、Claude 或其他 AI 绘图工具
 都能生成一张新的换掉它。规格必须说死，不然做出来的图拼不进游戏里：
 
 ```
@@ -166,7 +166,7 @@ const VOCAB = [
 角色是：〔描述你想要的角色〕
 ```
 
-下载后改名为 `climber.png`，放回 `art/` 资料夹，刷新就看得到。
+下载后改名为 `climber.png`，覆盖原来那张，刷新就看得到。
 
 如果新图的格子宽高比跟原来不一样，让 Claude 把 `index.html` 里 `.climber`
 那几行的 `width` 和 `height` 调一下就好。
@@ -180,7 +180,7 @@ const VOCAB = [
 这个教师改编版由 [Chun Kai Xin 郑凯欣](https://kaixinbuilds.github.io) 为
 「2026 AI in Sec CL NLC」工作坊重写。MIT 许可，欢迎自由改编，保留署名即可。
 
-`art/` 里的图片一并提供给老师教学与改编使用。换成自己的当然更好，但不是必须。
+三张图片（`landscape.jpg`、`wall.jpg`、`climber.png`）一并提供给老师教学与改编使用。换成自己的当然更好，但不是必须。
 
 做出来了？欢迎让我看看。
 
